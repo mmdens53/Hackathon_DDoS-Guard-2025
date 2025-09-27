@@ -1,0 +1,729 @@
+<!doctype html>
+<html lang="ru">
+    <head>
+        <title>Сканер и подключение к сетевым устройствам</title>
+        <meta charset="utf-8" />
+        <link
+            rel="stylesheet"
+            href="https://unpkg.com/xterm@5.3.0/css/xterm.css"
+        />
+        <style>
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+
+            body {
+                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+                margin: 0;
+                padding: 20px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+            }
+
+            .container {
+                max-width: 1200px;
+                margin: 0 auto;
+                background: white;
+                padding: 30px;
+                border-radius: 15px;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            }
+
+            h1 {
+                text-align: center;
+                color: #333;
+                margin-bottom: 30px;
+                font-size: 2.5em;
+            }
+
+            .scan-section {
+                background: #f8f9fa;
+                padding: 25px;
+                border-radius: 10px;
+                margin-bottom: 30px;
+            }
+
+            .form-group {
+                margin: 20px 0;
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 10px;
+            }
+
+            input,
+            select,
+            button {
+                padding: 12px 15px;
+                border: 2px solid #e1e5e9;
+                border-radius: 8px;
+                font-size: 16px;
+                transition: all 0.3s ease;
+            }
+
+            input:focus,
+            select:focus {
+                outline: none;
+                border-color: #007bff;
+                box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+            }
+
+            .ip-input {
+                flex: 1;
+                min-width: 250px;
+            }
+
+            button {
+                background: #007bff;
+                color: white;
+                border: none;
+                cursor: pointer;
+                font-weight: 600;
+            }
+
+            button:hover {
+                background: #0056b3;
+                transform: translateY(-2px);
+                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            }
+
+            button:disabled {
+                background: #6c757d;
+                cursor: not-allowed;
+                transform: none;
+                box-shadow: none;
+            }
+
+            .result {
+                margin: 25px 0;
+                padding: 20px;
+                border-radius: 10px;
+                animation: fadeIn 0.5s ease;
+            }
+
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(20px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            .success {
+                background: #d4edda;
+                border: 1px solid #c3e6cb;
+                color: #155724;
+            }
+
+            .error {
+                background: #f8d7da;
+                border: 1px solid #f5c6cb;
+                color: #721c24;
+            }
+
+            .loading {
+                text-align: center;
+                color: #007bff;
+                font-size: 18px;
+                padding: 20px;
+            }
+
+            .protocol-section {
+                display: none;
+                margin-top: 30px;
+                padding: 25px;
+                background: #f8f9fa;
+                border-radius: 10px;
+                border-left: 5px solid #007bff;
+            }
+
+            .protocol-active {
+                display: block;
+            }
+
+            .terminal-container {
+                background: #1e1e1e;
+                border-radius: 5px;
+                padding: 15px;
+                margin-top: 15px;
+            }
+
+            #terminal {
+                width: 100%;
+                height: 400px;
+            }
+
+            .tab-buttons {
+                display: flex;
+                margin-bottom: 20px;
+                border-bottom: 2px solid #e1e5e9;
+            }
+
+            .tab-button {
+                padding: 12px 25px;
+                background: none;
+                border: none;
+                border-bottom: 3px solid transparent;
+                color: #6c757d;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s ease;
+            }
+
+            .tab-button.active {
+                color: #007bff;
+                border-bottom-color: #007bff;
+            }
+
+            .connection-info {
+                background: #e7f3ff;
+                padding: 15px;
+                border-radius: 8px;
+                margin: 15px 0;
+            }
+
+            .status-online {
+                color: #28a745;
+                font-weight: bold;
+            }
+
+            .status-offline {
+                color: #dc3545;
+                font-weight: bold;
+            }
+
+            .hidden {
+                display: none;
+            }
+
+            .vnc-container {
+                width: 100%;
+                height: 600px;
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                overflow: hidden;
+            }
+
+            .secondary {
+                background: #6c757d;
+                margin-right: 10px;
+            }
+
+            .secondary:hover {
+                background: #545b62;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🔍 Сканер и подключение к сетевым устройствам</h1>
+
+            <!-- Секция сканирования -->
+            <div class="scan-section">
+                <div class="form-group">
+                    <input
+                        type="text"
+                        id="ipInput"
+                        class="ip-input"
+                        placeholder="Введите IP адрес (например: 192.168.1.1)"
+                    />
+                    <button onclick="scanDevice()" id="scanButton">
+                        Сканировать устройство
+                    </button>
+                </div>
+
+                <div id="loading" class="loading hidden">
+                    <div>⏳ Сканирование устройства...</div>
+                    <div style="font-size: 14px; margin-top: 10px">
+                        Проверяем доступность, открытые порты и протоколы
+                    </div>
+                </div>
+
+                <div id="result"></div>
+            </div>
+
+            <!-- Секция подключения -->
+            <div id="connectionSection" class="hidden">
+                <div class="connection-info">
+                    <h3>📡 Подключение к устройству</h3>
+                    <div class="form-group">
+                        <input
+                            type="text"
+                            id="username"
+                            placeholder="Имя пользователя"
+                        />
+                        <input
+                            type="password"
+                            id="password"
+                            placeholder="Пароль"
+                        />
+                        <input
+                            type="text"
+                            id="port"
+                            placeholder="Порт (по умолчанию для протокола)"
+                        />
+                        <select id="protocolSelect">
+                            <option value="">Выберите протокол</option>
+                        </select>
+                        <button onclick="connectDevice()" id="connectButton">
+                            Подключиться
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Табы для разных протоколов -->
+                <div class="tab-buttons">
+                    <button class="tab-button active" onclick="showTab('ssh')">
+                        SSH Терминал
+                    </button>
+                    <button class="tab-button" onclick="showTab('vnc')">
+                        VNC
+                    </button>
+                    <button class="tab-button" onclick="showTab('rdp')">
+                        RDP
+                    </button>
+                </div>
+
+                <!-- SSH Терминал -->
+                <div id="ssh-tab" class="protocol-section protocol-active">
+                    <h3>🖥️ SSH Подключение</h3>
+                    <div class="terminal-container">
+                        <div id="terminal"></div>
+                    </div>
+                    <div style="margin-top: 15px">
+                        <button onclick="clearTerminal()" class="secondary">
+                            Очистить терминал
+                        </button>
+                        <button onclick="reconnectSSH()" class="secondary">
+                            Переподключиться
+                        </button>
+                    </div>
+                </div>
+
+                <!-- VNC -->
+                <div id="vnc-tab" class="protocol-section">
+                    <h3>👁️ VNC Подключение</h3>
+                    <div id="vncContainer" class="vnc-container">
+                        <p
+                            style="
+                                padding: 20px;
+                                text-align: center;
+                                color: #666;
+                            "
+                        >
+                            VNC подключение будет активировано после выбора
+                            протокола VNC и нажатия "Подключиться"
+                        </p>
+                    </div>
+                </div>
+
+                <!-- RDP -->
+                <div id="rdp-tab" class="protocol-section">
+                    <h3>🖼️ RDP Подключение</h3>
+                    <div
+                        style="
+                            padding: 20px;
+                            background: #f8f9fa;
+                            border-radius: 8px;
+                        "
+                    >
+                        <p>
+                            Для подключения по RDP скачайте конфигурационный
+                            файл и откройте его в приложении Remote Desktop:
+                        </p>
+                        <button
+                            onclick="downloadRDP()"
+                            id="rdpButton"
+                            style="margin-top: 15px"
+                        >
+                            📥 Скачать RDP файл
+                        </button>
+                        <div id="rdpStatus" style="margin-top: 10px"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://unpkg.com/xterm@5.3.0/lib/xterm.js"></script>
+
+        <script>
+            let currentDevice = null;
+            let currentTerminal = null;
+            let currentSocket = null;
+
+            // Инициализация терминала
+            function initTerminal() {
+                if (currentTerminal) {
+                    currentTerminal.dispose();
+                }
+
+                currentTerminal = new Terminal({
+                    cursorBlink: true,
+                    cols: 120,
+                    rows: 30,
+                    theme: {
+                        background: "#1e1e1e",
+                        foreground: "#ffffff",
+                    },
+                });
+
+                const terminalElement = document.getElementById("terminal");
+                terminalElement.innerHTML = "";
+                currentTerminal.open(terminalElement);
+
+                currentTerminal.write(
+                    "\r\n\x1b[1;32mSSH терминал готов к подключению...\x1b[0m\r\n",
+                );
+                currentTerminal.write(
+                    '\r\nВыберите протокол SSH и нажмите "Подключиться"\r\n',
+                );
+
+                currentTerminal.onData((data) => {
+                    if (
+                        currentSocket &&
+                        currentSocket.readyState === WebSocket.OPEN
+                    ) {
+                        currentSocket.send(data);
+                    }
+                });
+            }
+
+            function showTab(tabName) {
+                document
+                    .querySelectorAll(".protocol-section")
+                    .forEach((tab) => {
+                        tab.classList.remove("protocol-active");
+                    });
+
+                document.querySelectorAll(".tab-button").forEach((btn) => {
+                    btn.classList.remove("active");
+                });
+
+                document
+                    .getElementById(`${tabName}-tab`)
+                    .classList.add("protocol-active");
+
+                event.target.classList.add("active");
+
+                // Инициализировать терминал если открываем SSH
+                if (tabName === "ssh" && !currentTerminal) {
+                    initTerminal();
+                }
+            }
+
+            // Сканирование устройства
+            async function scanDevice() {
+                const ip = document.getElementById("ipInput").value.trim();
+                if (!ip) {
+                    alert("Пожалуйста, введите IP адрес");
+                    return;
+                }
+
+                const scanButton = document.getElementById("scanButton");
+                const loading = document.getElementById("loading");
+                const resultDiv = document.getElementById("result");
+
+                scanButton.disabled = true;
+                loading.classList.remove("hidden");
+                resultDiv.innerHTML = "";
+
+                try {
+                    const response = await fetch("/scan", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/x-www-form-urlencoded",
+                        },
+                        body: "ip=" + encodeURIComponent(ip),
+                    });
+
+                    const result = await response.json();
+                    displayScanResult(result);
+                } catch (error) {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            ❌ Ошибка сети: ${error.message}
+                        </div>
+                    `;
+                } finally {
+                    scanButton.disabled = false;
+                    loading.classList.add("hidden");
+                }
+            }
+
+            function displayScanResult(data) {
+                const resultDiv = document.getElementById("result");
+                const connectionSection =
+                    document.getElementById("connectionSection");
+
+                if (data.error) {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            ❌ ${data.error}
+                        </div>
+                    `;
+                    connectionSection.classList.add("hidden");
+                    return;
+                }
+
+                currentDevice = data;
+                connectionSection.classList.remove("hidden");
+
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <h3>✅ Устройство ${data.ip} найдено!</h3>
+                        <p><strong>Статус:</strong> <span class="status-online">🟢 Online</span></p>
+                        <p><strong>Операционная система:</strong> ${data.os}</p>
+                        <p><strong>Открытые порты:</strong> ${data.open_ports.join(", ")}</p>
+                        <p><strong>Доступные протоколы:</strong> ${data.protocols.join(", ")}</p>
+                    </div>
+                `;
+
+                const protocolSelect =
+                    document.getElementById("protocolSelect");
+                protocolSelect.innerHTML =
+                    '<option value="">Выберите протокол</option>';
+
+                data.protocols.forEach((protocol) => {
+                    if (protocol !== "FTP") {
+                        const option = document.createElement("option");
+                        option.value = protocol;
+                        option.textContent = protocol;
+                        protocolSelect.appendChild(option);
+                    }
+                });
+
+                if (data.protocols.length > 0 && data.protocols[0] !== "FTP") {
+                    document.getElementById("port").value = getDefaultPort(
+                        data.protocols[0],
+                    );
+                }
+            }
+
+            function getDefaultPort(protocol) {
+                const portMap = {
+                    SSH: "22",
+                    VNC: "5900",
+                    RDP: "3389",
+                    Telnet: "23",
+                    HTTP: "80",
+                    HTTPS: "443",
+                };
+                return portMap[protocol] || "";
+            }
+
+            async function connectDevice() {
+                if (!currentDevice) return;
+
+                const username = document
+                    .getElementById("username")
+                    .value.trim();
+                const password = document.getElementById("password").value;
+                const protocol =
+                    document.getElementById("protocolSelect").value;
+                let port = document.getElementById("port").value.trim();
+
+                if (!username || !password || !protocol) {
+                    alert("Пожалуйста, заполните все обязательные поля");
+                    return;
+                }
+
+                if (!port) {
+                    port = getDefaultPort(protocol);
+                    document.getElementById("port").value = port;
+                }
+
+                const connectButton = document.getElementById("connectButton");
+                connectButton.disabled = true;
+                connectButton.textContent = "Подключение...";
+
+                try {
+                    const response = await fetch("/connect", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/x-www-form-urlencoded",
+                        },
+                        body: `ip=${currentDevice.ip}&protocol=${protocol}&username=${username}&password=${password}&port=${port}`,
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        alert(`✅ ${result.message}`);
+
+                        if (protocol === "SSH") {
+                            connectSSH(
+                                currentDevice.ip,
+                                username,
+                                password,
+                                port,
+                            );
+                            showTab("ssh");
+                        } else if (protocol === "VNC") {
+                            showTab("vnc");
+                            document.getElementById("vncContainer").innerHTML =
+                                `
+                                <iframe src="/vnc/${currentDevice.ip}?password=${password}" width="100%" height="100%" style="border: none;"></iframe>
+                            `;
+                        } else if (protocol === "RDP") {
+                            showTab("rdp");
+                        }
+                    } else {
+                        alert(`❌ Ошибка: ${result.error || result.message}`);
+                    }
+                } catch (error) {
+                    alert("❌ Ошибка сети: " + error.message);
+                } finally {
+                    connectButton.disabled = false;
+                    connectButton.textContent = "Подключиться";
+                }
+            }
+
+            // Подключение по SSH
+            function connectSSH(ip, username, password, port) {
+                if (currentSocket) {
+                    currentSocket.close();
+                }
+
+                if (!currentTerminal) {
+                    initTerminal();
+                }
+
+                const protocol =
+                    window.location.protocol === "https:" ? "wss:" : "ws:";
+                const wsUrl = `${protocol}//${window.location.host}/ws/ssh/${ip}`;
+
+                currentSocket = new WebSocket(wsUrl);
+
+                currentSocket.onopen = () => {
+                    currentSocket.send(
+                        JSON.stringify({
+                            username: username,
+                            password: password,
+                            port: parseInt(port) || 22,
+                        }),
+                    );
+                    if (currentTerminal) {
+                        currentTerminal.write(
+                            "\r\n\x1b[1;33mУстанавливаем SSH соединение...\x1b[0m\r\n",
+                        );
+                    }
+                };
+
+                currentSocket.onmessage = (event) => {
+                    if (currentTerminal) {
+                        currentTerminal.write(event.data);
+                    }
+                };
+
+                currentSocket.onclose = () => {
+                    if (currentTerminal) {
+                        currentTerminal.write(
+                            "\r\n\x1b[1;31mSSH соединение закрыто\x1b[0m\r\n",
+                        );
+                    }
+                };
+
+                currentSocket.onerror = (error) => {
+                    if (currentTerminal) {
+                        currentTerminal.write(
+                            "\r\n\x1b[1;31mОшибка SSH соединения\x1b[0m\r\n",
+                        );
+                    }
+                    console.error("WebSocket error:", error);
+                };
+            }
+
+            async function downloadRDP() {
+                if (!currentDevice) return;
+
+                const username = document
+                    .getElementById("username")
+                    .value.trim();
+                if (!username) {
+                    alert("Введите имя пользователя для RDP подключения");
+                    return;
+                }
+
+                const rdpButton = document.getElementById("rdpButton");
+                const rdpStatus = document.getElementById("rdpStatus");
+
+                rdpButton.disabled = true;
+                rdpButton.textContent = "Генерация...";
+                rdpStatus.innerHTML = "";
+
+                try {
+                    const response = await fetch("/generate-rdp", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/x-www-form-urlencoded",
+                        },
+                        body: `ip=${currentDevice.ip}&username=${username}`,
+                    });
+
+                    if (response.ok) {
+                        const blob = await response.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `rdp_${currentDevice.ip}.rdp`;
+                        document.body.appendChild(a);
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(a);
+
+                        rdpStatus.innerHTML =
+                            '<span style="color: green;">✅ RDP файл успешно скачан</span>';
+                    } else {
+                        throw new Error("Ошибка генерации RDP файла");
+                    }
+                } catch (error) {
+                    rdpStatus.innerHTML = `<span style="color: red;">❌ Ошибка: ${error.message}</span>`;
+                } finally {
+                    rdpButton.disabled = false;
+                    rdpButton.textContent = "📥 Скачать RDP файл";
+                }
+            }
+
+            function clearTerminal() {
+                if (currentTerminal) {
+                    currentTerminal.clear();
+                    currentTerminal.write("$ ");
+                }
+            }
+
+            function reconnectSSH() {
+                const username = document.getElementById("username").value;
+                const password = document.getElementById("password").value;
+                const port = document.getElementById("port").value;
+
+                if (username && password && currentDevice) {
+                    connectSSH(currentDevice.ip, username, password, port);
+                } else {
+                    alert("Заполните все поля для подключения");
+                }
+            }
+
+            document
+                .getElementById("ipInput")
+                .addEventListener("keypress", function (e) {
+                    if (e.key === "Enter") scanDevice();
+                });
+
+            document
+                .getElementById("protocolSelect")
+                .addEventListener("change", function (e) {
+                    const port = getDefaultPort(e.target.value);
+                    document.getElementById("port").value = port;
+                });
+
+            document.addEventListener("DOMContentLoaded", function () {
+                initTerminal();
+            });
+        </script>
+    </body>
+</html>

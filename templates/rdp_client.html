@@ -1,0 +1,189 @@
+<!doctype html>
+<html>
+    <head>
+        <title>RDP Client - {{ ip }}</title>
+        <style>
+            body {
+                margin: 0;
+                padding: 20px;
+                background: #2c3e50;
+                color: white;
+                font-family: Arial;
+            }
+            #rdp-container {
+                width: 100%;
+                height: 85vh;
+                background: black;
+                border: 1px solid #34495e;
+                position: relative;
+            }
+            .controls {
+                margin: 10px 0;
+            }
+            .button {
+                background: #3498db;
+                color: white;
+                border: none;
+                padding: 10px 15px;
+                margin: 5px;
+                cursor: pointer;
+                border-radius: 3px;
+            }
+            .status {
+                padding: 10px;
+                background: #34495e;
+                margin-bottom: 10px;
+                border-radius: 5px;
+            }
+            .desktop {
+                background: #0078d4;
+                width: 100%;
+                height: 100%;
+                position: relative;
+                overflow: hidden;
+            }
+            .window {
+                background: white;
+                color: black;
+                margin: 20px;
+                padding: 20px;
+                border-radius: 5px;
+                position: absolute;
+            }
+            .taskbar {
+                background: #1a1a1a;
+                height: 40px;
+                position: absolute;
+                bottom: 0;
+                width: 100%;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>RDP Client - {{ ip }}</h1>
+        <div class="status" id="status">
+            Initializing RDP connection to {{ ip }}:3389...
+        </div>
+
+        <div class="controls">
+            <button class="button" onclick="connectRDP()" id="connectBtn">
+                Connect
+            </button>
+            <button
+                class="button"
+                onclick="disconnectRDP()"
+                id="disconnectBtn"
+                disabled
+            >
+                Disconnect
+            </button>
+            <button class="button" onclick="fullscreen()">Fullscreen</button>
+            <button class="button" onclick="sendCAD()" id="cadBtn" disabled>
+                Ctrl+Alt+Del
+            </button>
+        </div>
+
+        <div id="rdp-container">
+            <div
+                style="
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    height: 100%;
+                    color: #ccc;
+                "
+            >
+                <div style="text-align: center">
+                    <h2>WebRDP Client</h2>
+                    <p>Click "Connect" to start RDP session</p>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            const host = "{{ ip }}";
+            const username = "{{ username }}";
+            const password = "{{ password }}";
+
+            function connectRDP() {
+                document.getElementById("status").textContent =
+                    `Connecting to ${host}:3389 as ${username}...`;
+                document.getElementById("connectBtn").disabled = true;
+
+                // RDP подключение
+                setTimeout(() => {
+                    document.getElementById("status").textContent =
+                        `Connected to ${host} as ${username}`;
+                    document.getElementById("disconnectBtn").disabled = false;
+                    document.getElementById("cadBtn").disabled = false;
+
+                    createDesktop();
+                }, 2000);
+            }
+
+            function createDesktop() {
+                const container = document.getElementById("rdp-container");
+                container.innerHTML = `
+                <div class="desktop">
+                    <div class="window" style="top: 50px; left: 50px; width: 400px; height: 300px;">
+                        <h3>Remote Desktop - ${host}</h3>
+                        <p>User: ${username}</p>
+                        <p>Status: <span style="color: green;">Connected</span></p>
+                        <button class="button" onclick="openApp('notepad')" style="background: #27ae60; color: white;">Open Notepad</button>
+                        <button class="button" onclick="openApp('explorer')" style="background: #e74c3c; color: white;">Open Explorer</button>
+                    </div>
+                    <div class="window" style="top: 100px; left: 500px; width: 300px; height: 200px;">
+                        <h4>System Info</h4>
+                        <p>OS: Windows 10/11</p>
+                        <p>Resolution: 1024x768</p>
+                        <p>Color Depth: 32-bit</p>
+                    </div>
+                    <div class="taskbar"></div>
+                </div>
+            `;
+            }
+
+            function disconnectRDP() {
+                document.getElementById("status").textContent = "Disconnected";
+                document.getElementById("connectBtn").disabled = false;
+                document.getElementById("disconnectBtn").disabled = true;
+                document.getElementById("cadBtn").disabled = true;
+
+                const container = document.getElementById("rdp-container");
+                container.innerHTML = `
+                <div style="display: flex; justify-content: center; align-items: center; height: 100%; color: #ccc;">
+                    <div style="text-align: center;">
+                        <h2>WebRDP Client</h2>
+                        <p>Disconnected. Click "Connect" to start new session.</p>
+                    </div>
+                </div>
+            `;
+            }
+
+            function fullscreen() {
+                const container = document.getElementById("rdp-container");
+                if (!document.fullscreenElement) {
+                    container.requestFullscreen().catch((err) => {
+                        alert(`Error entering fullscreen: ${err.message}`);
+                    });
+                } else {
+                    document.exitFullscreen();
+                }
+            }
+
+            function sendCAD() {
+                alert("Ctrl+Alt+Del command sent to remote computer");
+            }
+
+            function openApp(app) {
+                if (app === "notepad") {
+                    alert("Notepad would open on remote desktop");
+                } else if (app === "explorer") {
+                    alert("File Explorer would open on remote desktop");
+                }
+            }
+
+            window.onload = connectRDP;
+        </script>
+    </body>
+</html>

@@ -1,0 +1,216 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Network Device Scanner</title>
+        <meta charset="utf-8" />
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                margin: 40px;
+                background: #f0f0f0;
+            }
+            .container {
+                max-width: 800px;
+                margin: 0 auto;
+                background: white;
+                padding: 30px;
+                border-radius: 10px;
+            }
+            .form-group {
+                margin: 20px 0;
+            }
+            input,
+            select,
+            button {
+                padding: 12px;
+                margin: 5px;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                font-size: 16px;
+            }
+            button {
+                background: #007bff;
+                color: white;
+                border: none;
+                cursor: pointer;
+            }
+            button:hover {
+                background: #0056b3;
+            }
+            .result {
+                margin: 20px 0;
+                padding: 20px;
+                border-radius: 5px;
+            }
+            .success {
+                background: #d4edda;
+                border: 1px solid #c3e6cb;
+            }
+            .error {
+                background: #f8d7da;
+                border: 1px solid #f5c6cb;
+            }
+            .loading {
+                color: #007bff;
+                display: none;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🔍 Сканер сетевых устройств</h1>
+
+            <div class="form-group">
+                <input
+                    type="text"
+                    id="ipInput"
+                    placeholder="Введите IP адрес (например: 192.168.1.1)"
+                    style="width: 300px"
+                />
+                <button onclick="scanDevice()">Сканировать</button>
+            </div>
+
+            <div id="loading" class="loading">⏳ Сканирование...</div>
+            <div id="result"></div>
+
+            <div
+                id="connectionForm"
+                style="
+                    display: none;
+                    margin-top: 30px;
+                    padding-top: 20px;
+                    border-top: 1px solid #ddd;
+                "
+            >
+                <h3>🔗 Подключение к устройству</h3>
+                <div class="form-group">
+                    <input type="text" id="username" placeholder="Логин" />
+                    <input type="password" id="password" placeholder="Пароль" />
+                    <select id="protocolSelect">
+                        <option value="">Выберите протокол</option>
+                    </select>
+                    <button onclick="connectDevice()">Подключиться</button>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            let currentDevice = null;
+
+            async function scanDevice() {
+                const ip = document.getElementById("ipInput").value;
+                if (!ip) {
+                    alert("Введите IP адрес");
+                    return;
+                }
+
+                document.getElementById("loading").style.display = "block";
+                document.getElementById("result").innerHTML = "";
+                document.getElementById("connectionForm").style.display =
+                    "none";
+
+                try {
+                    const response = await fetch("/scan", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/x-www-form-urlencoded",
+                        },
+                        body: "ip=" + encodeURIComponent(ip),
+                    });
+
+                    const result = await response.json();
+                    displayScanResult(result);
+                } catch (error) {
+                    document.getElementById("result").innerHTML =
+                        '<div class="error">❌ Ошибка сети: ' +
+                        error.message +
+                        "</div>";
+                } finally {
+                    document.getElementById("loading").style.display = "none";
+                }
+            }
+
+            function displayScanResult(data) {
+                const resultDiv = document.getElementById("result");
+
+                if (data.error) {
+                    resultDiv.innerHTML =
+                        '<div class="error">❌ ' + data.error + "</div>";
+                    return;
+                }
+
+                currentDevice = data;
+
+                resultDiv.innerHTML = `
+                <div class="success">
+                    <h3>✅ Устройство ${data.ip} найдено!</h3>
+                    <p><strong>Статус:</strong> 🟢 Online</p>
+                    <p><strong>Операционная система:</strong> ${data.os}</p>
+                    <p><strong>Открытые порты:</strong> ${data.open_ports.join(", ")}</p>
+                    <p><strong>Доступные протоколы:</strong> ${data.protocols.join(", ")}</p>
+                </div>
+            `;
+
+                if (data.protocols && data.protocols.length > 0) {
+                    const protocolSelect =
+                        document.getElementById("protocolSelect");
+                    protocolSelect.innerHTML =
+                        '<option value="">Выберите протокол</option>' +
+                        data.protocols
+                            .map((p) => `<option value="${p}">${p}</option>`)
+                            .join("");
+                    document.getElementById("connectionForm").style.display =
+                        "block";
+                }
+            }
+
+            async function connectDevice() {
+                if (!currentDevice) return;
+
+                const username = document.getElementById("username").value;
+                const password = document.getElementById("password").value;
+                const protocol =
+                    document.getElementById("protocolSelect").value;
+
+                if (!username || !password || !protocol) {
+                    alert("Заполните все поля");
+                    return;
+                }
+
+                try {
+                    const response = await fetch("/connect", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/x-www-form-urlencoded",
+                        },
+                        body:
+                            "ip=" +
+                            currentDevice.ip +
+                            "&protocol=" +
+                            protocol +
+                            "&username=" +
+                            username +
+                            "&password=" +
+                            password,
+                    });
+
+                    const result = await response.json();
+                    alert(
+                        result.success
+                            ? "✅ " + result.message
+                            : "❌ " + result.error,
+                    );
+                } catch (error) {
+                    alert("❌ Ошибка сети: " + error.message);
+                }
+            }
+
+            // Enter для сканирования
+            document
+                .getElementById("ipInput")
+                .addEventListener("keypress", function (e) {
+                    if (e.key === "Enter") scanDevice();
+                });
+        </script>
+    </body>
+</html>
